@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Quiz Generator</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ══ HEADER ══════════════════════════════════════════ -->
+  <div class="app-header">
+    <span class="app-logo">⚡ QuizAI</span>
+    <span class="app-tagline">Upload · Quiz · Learn</span>
+  </div>
+
+  <!-- ══ UPLOAD SECTION ══════════════════════════════════ -->
+  <div id="section-upload">
+    <div class="upload-card">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="drop-icon">📄</div>
+        <p class="drop-title">Click to upload or drag &amp; drop</p>
+        <p class="drop-hint">PDF · PNG · JPG · WEBP &nbsp;·&nbsp; Max 20 MB</p>
+        <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden/>
+      </div>
+
+      <!-- file chosen preview -->
+      <div class="file-preview hidden" id="filePreview">
+        <span id="fileIcon">📄</span>
+        <div class="file-info">
+          <strong id="fileName">—</strong>
+          <small id="fileSize">—</small>
+        </div>
+        <button class="btn-remove" onclick="clearFile(event)" title="Remove">✕</button>
+      </div>
+
+      <!-- options -->
+      <div class="opts-row">
+        <div class="opt-group">
+          <label>Number of questions</label>
+          <div class="pills" id="numPills">
+            <button class="pill" data-val="3">3</button>
+            <button class="pill active" data-val="5">5</button>
+            <button class="pill" data-val="8">8</button>
+            <button class="pill" data-val="10">10</button>
+          </div>
+        </div>
+        <div class="opt-group">
+          <label>Difficulty</label>
+          <div class="pills" id="diffPills">
+            <button class="pill" data-val="easy">Easy</button>
+            <button class="pill active" data-val="medium">Medium</button>
+            <button class="pill" data-val="hard">Hard</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="generateBtn" onclick="generateQuiz()" disabled>
+        <span id="btnText">✦ Generate Quiz</span>
+        <span id="btnSpinner" class="spinner hidden"></span>
+      </button>
+
+      <div class="error-box hidden" id="errorBox"></div>
+    </div>
+
+    <!-- feature chips -->
+    <div class="feature-chips">
+      <div class="chip">🎙️ Voice questions</div>
+      <div class="chip">🧠 Smart review</div>
+      <div class="chip">📋 AI summary</div>
+      <div class="chip">✅ Per-answer feedback</div>
+    </div>
+  </div>
+
+  <!-- ══ QUIZ SECTION (hidden until quiz loads) ══════════ -->
+  <div id="section-quiz" class="hidden">
+
+    <!-- progress bar -->
+    <div class="quiz-topbar">
+      <span class="topic-label" id="topicLabel">—</span>
+      <span class="prog-label" id="progLabel">Q 1 / 5</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+
+    <!-- summary toggle -->
+    <button class="summary-toggle" onclick="toggleSummary()">📋 View content summary</button>
+    <div class="summary-card hidden" id="summaryCard">
+      <h3>Content Summary</h3>
+      <p id="summaryText"></p>
+      <ul id="keyPointsList"></ul>
+      <button class="btn-voice-sm" onclick="speakText(document.getElementById('summaryText').textContent)">
+        🔊 Read summary aloud
+      </button>
+    </div>
+
+    <!-- question card -->
+    <div class="q-card" id="qCard">
+      <div class="q-num" id="qNum">01</div>
+      <p class="q-text" id="qText">Loading…</p>
+
+      <div class="voice-bar">
+        <button class="btn-voice" id="btnSpeak" onclick="speakCurrentQuestion()">🔊 Read question</button>
+        <button class="btn-voice stop-btn hidden" id="btnStop" onclick="stopSpeech()">⏹ Stop</button>
+        <span class="voice-status" id="voiceStatus"></span>
+      </div>
+
+      <!-- options rendered here by JS -->
+      <div class="opts-list" id="optsList"></div>
+
+      <div class="nav-bar">
+        <button class="btn-nav" id="btnPrev" onclick="prevQ()" disabled>← Prev</button>
+        <button class="btn-nav" id="btnNext" onclick="nextQ()">Next →</button>
+        <button class="btn-submit hidden" id="btnSubmit" onclick="submitQuiz()">Submit Quiz ✓</button>
+      </div>
+    </div>
+
+    <!-- dot navigator -->
+    <div class="dot-nav" id="dotNav"></div>
+  </div>
+
+  <!-- ══ REVIEW SECTION (hidden until submitted) ═════════ -->
+  <div id="section-review" class="hidden">
+
+    <!-- score hero -->
+    <div class="score-hero">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 120 120" class="ring-svg">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#e2e8f0" stroke-width="10"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#5b3ef5" stroke-width="10"
+                  stroke-dasharray="314.16" stroke-dashoffset="314.16"
+                  stroke-linecap="round" transform="rotate(-90 60 60)"
+                  id="ringArc"/>
+        </svg>
+        <div class="ring-text">
+          <span class="ring-score" id="ringScore">0</span>
+          <span class="ring-denom">/<span id="ringTotal">5</span></span>
+        </div>
+      </div>
+      <div class="score-detail">
+        <span class="perf-badge" id="perfBadge">—</span>
+        <h2>Quiz Complete!</h2>
+        <p class="pct-line"><span id="pctNum">0</span>% — <span id="pctLabel">keep going!</span></p>
+        <p class="feedback-text" id="feedbackText"></p>
+        <button class="btn-voice-sm" onclick="speakText(document.getElementById('feedbackText').textContent)">
+          🔊 Hear feedback
+        </button>
+      </div>
+    </div>
+
+    <!-- insights -->
+    <div class="insights-grid">
+      <div class="insight-card">
+        <h4>✅ Strengths</h4>
+        <ul id="strengthsList"></ul>
+      </div>
+      <div class="insight-card">
+        <h4>📚 Improve</h4>
+        <ul id="improveList"></ul>
+      </div>
+      <div class="insight-card">
+        <h4>💡 Study Tips</h4>
+        <ul id="tipsList"></ul>
+      </div>
+    </div>
+
+    <!-- per-question breakdown -->
+    <h3 class="section-heading">Question Breakdown</h3>
+    <div id="breakdown"></div>
+
+    <!-- summary repeated in review -->
+    <div class="review-summary">
+      <h3>📖 Content Summary</h3>
+      <p id="revSummary"></p>
+      <div id="revKeyChips" class="key-chips"></div>
+      <button class="btn-voice-sm" onclick="speakText(document.getElementById('revSummary').textContent)">
+        🔊 Read summary
+      </button>
+    </div>
+
+    <div class="encouragement" id="encouragement"></div>
+    <button class="btn-primary" onclick="restartApp()">↺ Start New Quiz</button>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ══ LOADING OVERLAY ══════════════════════════════════════ -->
+<div class="overlay hidden" id="overlay">
+  <div class="overlay-box">
+    <div class="big-spinner"></div>
+    <p id="overlayMsg">Analysing your content…</p>
+    <small>This may take up to 30 seconds</small>
+  </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
